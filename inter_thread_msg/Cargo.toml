@@ -1,0 +1,6 @@
+[package]
+name = "inter_thread_msg"
+version = "0.1.0"
+authors = ["mmihira <mmihira.w@gmail.com>"]
+
+[dependencies]

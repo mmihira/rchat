@@ -1,0 +1,5 @@
+[package]
+name = "client_server_msg"
+version = "0.1.0"
+
+[dependencies]
