@@ -4,4 +4,6 @@ version = "0.1.0"
 authors = ["mmihira <mmihira.w@gmail.com>"]
 
 [dependencies]
-client_server_msg = { path= "./../client_server_msg/" }
+msg_protocol = { path= "./../msg_protocol/" }
+serde_json = "1.0"
+uuid = { version = "0.6", features = ["v4"] }
