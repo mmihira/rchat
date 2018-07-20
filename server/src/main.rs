@@ -1,35 +1,38 @@
-mod con_worker;
-mod con_writer;
-use con_writer::{
-    ConWriter,
-    ConWriterMsg,
-    NewSocket};
-use std::net::TcpListener;
-use std::str;
-use con_worker::ConWorker;
+extern crate pretty_env_logger;
+#[macro_use] extern crate log;
 
+extern crate serde_json;
+extern crate msg_protocol;
+extern crate threadpool;
+use msg_protocol::MsgProtocol;
+
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
+
+mod con_reader;
+use con_reader::ConReader;
+
+mod manager;
+use manager::ManagerMsg;
+use manager::manager_msg;
+
+use std::net::TcpListener;
 use std::sync::mpsc::channel;
 
-use std::collections::HashMap;
-
 fn main() {
-    // Writer Channel
-    let (writer_send, writer_receive) = channel();
-    let z = ConWriter::spawn(writer_receive);
+    pretty_env_logger::init();
+    let (manager_send, manager_receive): (Sender<ManagerMsg>, Receiver<ManagerMsg>) = channel();
+    let _manager_handle = manager::Manager::spawn(manager_receive);
+
+    info!("Server starting");
 
     let listener = TcpListener::bind("127.0.0.1:30000").unwrap();
-
-    // let mut = HashMap::new();
     for stream in listener.incoming() {
         match stream {
-            Ok(mut stream) => {
-                println!("new client!");
-                writer_send.send(ConWriterMsg::NewSocket(NewSocket{
-                    id: "Hello".to_string(),
-                    socket: stream.try_clone().unwrap()
-                }));
-                ConWorker::spawn(stream);
-            }
+            Ok(stream) => {
+                info!("New Client {:?}", stream);
+                ConReader::spawn(stream, manager_send.clone());
+            },
             Err(e) => { /* connection failed */ }
         }
     }

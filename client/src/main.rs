@@ -4,7 +4,7 @@ use msg_protocol::MsgProtocol::{
     NewClientRequest,
     NewClientResponse,
     TypedNewMessage,
-    ServerMessage
+    ToClientMsgFromRoom
 };
 extern crate serde_json;
 extern crate uuid;
@@ -36,11 +36,10 @@ fn main() {
         let mut read_stream_clone = stream.try_clone().unwrap();
 
         let _write_thread = thread::spawn(move|| {
-
             // First write
             let name = Uuid::new_v4().to_string();
             let client  = NewClientRequest(name);
-            let serialized = serde_json::to_string(&client).unwrap();
+            let serialized = MsgProtocol::to_string(&client);
             write_stream_clone.write(serialized.as_bytes()).unwrap();
 
             // First message must be name accepted
@@ -57,11 +56,13 @@ fn main() {
                 let msg: MsgProtocol = rx.recv().unwrap();
                 match msg {
                     TypedNewMessage(ref content) => {
-                        let res = write_stream_clone.write(content.as_bytes()).unwrap();
+                        let res = write_stream_clone.write(
+                            MsgProtocol::to_string(&msg).as_bytes()
+                        ).unwrap();
                     },
-                    ServerMessage(ref content) => {
-                        println!("{:?}", content);
-                    },
+                    ToClientMsgFromRoom(ref msg) => {
+                        println!("Ping back {:?}", msg);
+                    }
                     _ => {}
                 }
             }
