@@ -1,10 +1,15 @@
 extern crate msg_protocol;
+extern crate regex;
+use regex::Regex;
+
 use msg_protocol::MsgProtocol;
 use msg_protocol::MsgProtocol::{
     NewClientRequest,
     NewClientResponse,
     TypedNewMessage,
-    ToClientMsgFromRoom
+    ToClientMsgFromRoom,
+    RequestRoomList,
+    ResponseRoomList
 };
 extern crate serde_json;
 extern crate uuid;
@@ -27,6 +32,7 @@ use std::process::exit;
 fn main() {
     // Action channel
     let (tx, rx) = channel();
+
 
     // Connect to server
     if let Ok(mut stream) = TcpStream::connect("127.0.0.1:30000") {
@@ -62,6 +68,17 @@ fn main() {
                     },
                     ToClientMsgFromRoom(ref msg) => {
                         println!("Ping back {:?}", msg);
+                    },
+                    RequestRoomList(_) => {
+                        let res = write_stream_clone.write(
+                            MsgProtocol::to_string(&msg).as_bytes()
+                        ).unwrap();
+                    },
+                    ResponseRoomList(ref list) => {
+                        println!("{:?}","Rooms available are");
+                        for room_name in list.iter() {
+                            println!("- {:?}", room_name);
+                        }
                     }
                     _ => {}
                 }
@@ -81,8 +98,26 @@ fn main() {
     'io_in: loop {
         let mut buffer = String::new();
         stdin().read_line(&mut buffer).unwrap();
+        let re = Regex::new(r"/(.*) (.*)").unwrap();
 
-        tx.send(TypedNewMessage(buffer.to_owned())).unwrap();
+        if (buffer.len() > 0) {
+            if(buffer.starts_with(r"/")) {
+                if let Some(capture) = re.captures(&buffer) {
+                    println!("{:?}",capture);
+                    match &capture[1] {
+                        "join" => println!("{:?}", "valid"),
+                        "list" => tx.send(RequestRoomList(true)).unwrap(),
+                        _ => println!("{:?}", "Invalid command")
+                    }
+                } else {
+                    println!("{:?}", "Not captured");
+                }
+            } else {
+                tx.send(TypedNewMessage(buffer.to_owned())).unwrap();
+            }
+        }
     }
 }
+
+
 

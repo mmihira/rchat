@@ -27,11 +27,8 @@ impl ReadWorker {
                             break 'readloop;
                         },
                         Ok(_) => {
-                            println!("{:?}", buffer);
-                            send_channel.send(
-                                MsgProtocol::parse_msg(&buffer)
-                                ).unwrap();
-                        }
+                            send_channel.send(MsgProtocol::parse_msg(&buffer)).unwrap();
+                        },
                         Err(e) => {
                             println!("Error in ReadWorker {:?}", e);
                             break 'readloop;

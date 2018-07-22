@@ -69,10 +69,18 @@ impl ConReader {
             match buffered_stream.read_line(&mut buffer) {
                 Ok(0) => {
                     info!("Read connection closed for {:?}", buffered_stream);
+                    let msg = MsgProtocol::LeaveCurrentRoom(true);
+                    manager_send.send(
+                        ManagerMsg::ProtocolWrapper(manager_msg::ProtocolWrapper{
+                            client_name: client_name.to_string(),
+                            msg_protocol: msg
+                        })
+                    );
                     break 'readloop;
                 },
                 Ok(_) => {
                     let msg: MsgProtocol = MsgProtocol::parse_msg(&buffer);
+                    info!("From: {:?} : {:?}", client_name, msg);
                     manager_send.send(
                         ManagerMsg::ProtocolWrapper(manager_msg::ProtocolWrapper{
                             client_name: client_name.to_string(),

@@ -18,10 +18,13 @@ pub enum MsgProtocol {
     NewClientRequest(String),
     NewClientResponse(NewClientResponse),
 
+    RequestRoomList(bool),
+    ResponseRoomList(Vec<String>),
+
+    LeaveCurrentRoom(bool),
+
     TypedNewMessage(String),
     ToClientMsgFromRoom(String)
-
-    // Client
 }
 
 impl MsgProtocol {
