@@ -1,5 +1,4 @@
 use std::net::TcpStream;
-use msg_protocol;
 use msg_protocol::MsgProtocol;
 
 pub struct NewSocket {

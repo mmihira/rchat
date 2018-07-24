@@ -58,7 +58,7 @@ impl Manager {
                     internal.chat_rooms.insert_client_into_room(
                         &id_clone,
                         chat_rooms::DEFAULT_ROOM
-                    );
+                    ).unwrap();
 
                     internal.thread_pool.execute(move || {
                         let response = MsgProtocol::NewClientResponse(
@@ -81,8 +81,12 @@ impl Manager {
         let &manager_msg::ProtocolWrapper{ref client_name, ref msg_protocol} = msg_protocol_wrapper;
 
         match msg_protocol {
-            &MsgProtocol::TypedNewMessage(ref msg) => {
-                let msg_to_write = MsgProtocol::ToClientMsgFromRoom(msg.to_string());
+            &MsgProtocol::RequestTypedNewMessage(ref msg) => {
+                let msg_to_write = MsgProtocol::ResponseTypedMessage(
+                    msg_protocol::MsgResponse {
+                        client_name: client_name.to_string(),
+                        msg: msg.to_string()
+                    });
                 let serialized = MsgProtocol::to_string(&msg_to_write);
 
                 let client_chat_pariticipants = internal.chat_rooms.clients_room_pariticipants(client_name);
@@ -95,6 +99,40 @@ impl Manager {
                         socket_clone.write(msg_copy.as_bytes()).unwrap();
                     });
                 }
+            },
+            &MsgProtocol::RequestJoinRoom(ref room_name) => {
+                let mut client_socket: &TcpStream = internal.socket_map.get(client_name).unwrap();
+
+                let current_room = internal.chat_rooms.get_current_room_name(client_name).unwrap();
+                let leave_room = internal.chat_rooms.remove_client_from_room(client_name);
+                let join_room = internal.chat_rooms.insert_client_into_room(client_name, room_name);
+
+                if !join_room.is_ok() {
+                    internal.chat_rooms.insert_client_into_room(client_name, &current_room).unwrap();
+                }
+
+                let msg_to_write = MsgProtocol::ResponseJoinRoom(leave_room.is_ok() && join_room.is_ok());
+                let serialized = MsgProtocol::to_string(&msg_to_write);
+                let mut socket_clone = client_socket.try_clone().unwrap();
+                internal.thread_pool.execute(move || {
+                    socket_clone.write(serialized.as_bytes()).unwrap();
+                });
+
+                if join_room.is_ok() {
+                    // Also send a join room message to all pariticipants
+                }
+            },
+            &MsgProtocol::RequestCreateRoom(ref room_name) => {
+                let mut client_socket: &TcpStream = internal.socket_map.get(client_name).unwrap();
+
+                let msg_to_write = MsgProtocol::ResponseCreateRoom(
+                    internal.chat_rooms.create_room(room_name).is_ok()
+                );
+                let serialized = MsgProtocol::to_string(&msg_to_write);
+                let mut socket_clone = client_socket.try_clone().unwrap();
+                internal.thread_pool.execute(move || {
+                    socket_clone.write(serialized.as_bytes()).unwrap();
+                });
             },
             &MsgProtocol::LeaveCurrentRoom(_) => {
                 let res = internal.chat_rooms.remove_client_from_room(&client_name);

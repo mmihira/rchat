@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+#[derive(Debug)]
 pub struct ChatRoom {
     pub name: String,
     pub in_room: HashSet<String>
 }
 
+#[derive(Debug)]
 pub struct ChatRooms {
     pub rooms: HashMap<String, ChatRoom>
 }
@@ -32,15 +34,29 @@ impl ChatRooms {
 
     pub fn is_user_in_room(&self, client_name: &str, room_name: &str) -> bool {
         self.get_room(room_name).and_then(|room| room.in_room.get(client_name)).is_some()
-
     }
 
     pub fn insert_client_into_room(&mut self, client_name: &str, room_name: &str) -> Result<(),()> {
         return if self.is_user_in_room(client_name, room_name) {
             Err(())
         } else {
-            self.get_room_mut(room_name).unwrap().in_room.insert(client_name.to_string());
-            Ok(())
+            if let Some(room) = self.get_room_mut(room_name) {
+                return if room.in_room.insert(client_name.to_string()) { Ok(()) } else { Err(()) }
+            } else {
+                Err(())
+            }
+        }
+    }
+
+    pub fn create_room(&mut self, room_name: &str) -> Result<(), ()> {
+        if let None = self.get_room(room_name) {
+            self.rooms.insert(
+                room_name.to_string(),
+                ChatRoom { name: room_name.to_string(), in_room: HashSet::new() }
+            );
+            return Ok(())
+        } else {
+            return Err(())
         }
     }
 
@@ -48,8 +64,11 @@ impl ChatRooms {
         let ref room_name = self.get_current_room_name(client_name).unwrap();
 
         return if self.is_user_in_room(client_name, room_name) {
-            self.get_room_mut(room_name).unwrap().in_room.remove(client_name);
-            Ok(())
+            return if self.get_room_mut(room_name).unwrap().in_room.remove(client_name) {
+                Ok(())
+            } else {
+                Err(())
+            }
         } else {
             Err(())
         }
@@ -79,5 +98,11 @@ impl ChatRooms {
             .filter(|name| name != client_name)
             .collect()
     }
+
+    // pub fn debug_room_participants(&self) -> () {
+    //     for room in self.rooms.values() {
+    //         println!("{:?}", room);
+    //     }
+    // }
 }
 

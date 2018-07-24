@@ -3,12 +3,10 @@ use std::{thread};
 use std::net::TcpStream;
 use std::io::BufReader;
 use std::io::BufRead;
-use std::io::Write;
 use std::sync::mpsc::Sender;
 
 use msg_protocol::MsgProtocol;
 
-use manager;
 use manager::ManagerMsg;
 use manager::manager_msg;
 
@@ -17,7 +15,7 @@ pub struct ConReader {
 }
 
 impl ConReader {
-    pub fn spawn(mut stream: TcpStream, manager_send: Sender<ManagerMsg>) -> ConReader {
+    pub fn spawn(stream: TcpStream, manager_send: Sender<ManagerMsg>) -> ConReader {
         ConReader {
             hndl: thread::spawn(move || {
                 info!("ConReader starting for {:?}", stream);
@@ -42,11 +40,9 @@ impl ConReader {
                             manager_send.send(ManagerMsg::NewSocket(manager_msg::NewSocket{
                                 id: name,
                                 socket: stream.try_clone().unwrap()
-                            }));
+                            })).unwrap();
 
-                            /**
-                             * Main read loop after first message
-                             */
+                            // Main read loop after first message
                             Self::read_loop(client_name, &mut buffered_stream, manager_send);
                         } else {
                             info!("Expected a NewClientRequest initially from {:?}", stream);
@@ -75,7 +71,7 @@ impl ConReader {
                             client_name: client_name.to_string(),
                             msg_protocol: msg
                         })
-                    );
+                    ).unwrap();
                     break 'readloop;
                 },
                 Ok(_) => {
@@ -86,7 +82,7 @@ impl ConReader {
                             client_name: client_name.to_string(),
                             msg_protocol: msg
                         })
-                    );
+                    ).unwrap();
                     },
                 Err(e) => {
                     info!("Error: {:?}", e);

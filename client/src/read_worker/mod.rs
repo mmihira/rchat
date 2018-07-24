@@ -15,7 +15,7 @@ pub struct ReadWorker {
  * Reads messages from server and places them in an action que
  */
 impl ReadWorker {
-    pub fn spawn(mut stream: TcpStream, send_channel: Sender<MsgProtocol>) -> ReadWorker {
+    pub fn spawn(stream: TcpStream, send_channel: Sender<MsgProtocol>) -> ReadWorker {
         ReadWorker {
             hndl: thread::spawn(move || {
                 let mut buffered_stream = BufReader::new(stream.try_clone().unwrap());
@@ -23,14 +23,14 @@ impl ReadWorker {
                     let mut buffer = String::new();
                     match buffered_stream.read_line(&mut buffer) {
                         Ok(0) => {
-                            println!("{:?}","Connection closed.");
+                            println!("{:}","Connection closed.");
                             break 'readloop;
                         },
                         Ok(_) => {
                             send_channel.send(MsgProtocol::parse_msg(&buffer)).unwrap();
                         },
                         Err(e) => {
-                            println!("Error in ReadWorker {:?}", e);
+                            println!("Error in ReadWorker {:}", e);
                             break 'readloop;
                         }
                     };

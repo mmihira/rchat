@@ -1,49 +1,52 @@
 extern crate msg_protocol;
 extern crate regex;
+extern crate names;
+extern crate colored;
+
+use colored::*;
 use regex::Regex;
+use names::{Generator, Name};
 
 use msg_protocol::MsgProtocol;
 use msg_protocol::MsgProtocol::{
     NewClientRequest,
     NewClientResponse,
-    TypedNewMessage,
-    ToClientMsgFromRoom,
+    RequestTypedNewMessage,
+    ResponseTypedMessage,
+    RequestCreateRoom,
+    ResponseCreateRoom,
+    RequestJoinRoom,
+    ResponseJoinRoom,
     RequestRoomList,
     ResponseRoomList
 };
 extern crate serde_json;
-extern crate uuid;
-use uuid::Uuid;
-
 mod read_worker;
 
 use std::net::TcpStream;
 use std::io::Write;
 
-use std::error::Error as StdError;
 use std::io::stdin;
-use std::result::Result as StdResult;
 
-use std::{thread, time};
+use std::{thread};
 use std::sync::mpsc::channel;
-
-use std::process::exit;
 
 fn main() {
     // Action channel
     let (tx, rx) = channel();
 
-
     // Connect to server
-    if let Ok(mut stream) = TcpStream::connect("127.0.0.1:30000") {
-        println!("Connected to the server!");
+    if let Ok(stream) = TcpStream::connect("127.0.0.1:30000") {
+        println!("{}", "::Connected to the server!".green());
 
         let mut write_stream_clone = stream.try_clone().unwrap();
         let mut read_stream_clone = stream.try_clone().unwrap();
 
         let _write_thread = thread::spawn(move|| {
+            let mut generator = Generator::with_naming(Name::Plain);
+
             // First write
-            let name = Uuid::new_v4().to_string();
+            let name = generator.next().unwrap();
             let client  = NewClientRequest(name);
             let serialized = MsgProtocol::to_string(&client);
             write_stream_clone.write(serialized.as_bytes()).unwrap();
@@ -51,33 +54,61 @@ fn main() {
             // First message must be name accepted
             let server_acceptance: MsgProtocol = rx.recv().unwrap();
 
-            if let NewClientResponse(result) = server_acceptance {
-                println!("{:?}", "Server allowed access!");
+            if let NewClientResponse(_) = server_acceptance {
+                println!("{}", "::Server allowed access!".green());
+                println!("{}", "\nChat commands available: ".cyan());
+                println!("{}", "/create <room_name> : Create a new room".cyan());
+                println!("{}", "/join <room_name> : Join a new room".cyan());
+                println!("{}", "/list rooms : List all rooms\n".cyan());
             } else {
-                println!("{:?}", "Server denied access!");
+                println!("{}", "::Server denied access!".green());
                 return 0;
             }
 
             'write_loop: loop {
                 let msg: MsgProtocol = rx.recv().unwrap();
                 match msg {
-                    TypedNewMessage(ref content) => {
-                        let res = write_stream_clone.write(
+                    RequestTypedNewMessage(ref _content) => {
+                        let _res = write_stream_clone.write(
                             MsgProtocol::to_string(&msg).as_bytes()
                         ).unwrap();
                     },
-                    ToClientMsgFromRoom(ref msg) => {
-                        println!("Ping back {:?}", msg);
+                    ResponseTypedMessage(ref msg) => {
+                        println!("{:}: {:}", msg.client_name, msg.msg.trim().bold());
                     },
                     RequestRoomList(_) => {
-                        let res = write_stream_clone.write(
+                        let _res = write_stream_clone.write(
                             MsgProtocol::to_string(&msg).as_bytes()
                         ).unwrap();
                     },
+                    RequestCreateRoom(_) => {
+                        let _res = write_stream_clone.write(
+                            MsgProtocol::to_string(&msg).as_bytes()
+                        ).unwrap();
+                    },
+                    RequestJoinRoom(_) => {
+                        let _res = write_stream_clone.write(
+                            MsgProtocol::to_string(&msg).as_bytes()
+                        ).unwrap();
+                    }
+                    ResponseCreateRoom(result) => {
+                        if result {
+                            println!("{:}", "::Created room".green());
+                        } else {
+                            println!("{:}", "::Room allready exists".green());
+                        }
+                    },
+                    ResponseJoinRoom(result) => {
+                        if result {
+                            println!("{:}", "::Joined room".green());
+                        } else {
+                            println!("{:}", "::Could not join room".green());
+                        }
+                    },
                     ResponseRoomList(ref list) => {
-                        println!("{:?}","Rooms available are");
+                        println!("{:}","::Rooms available are".green());
                         for room_name in list.iter() {
-                            println!("- {:?}", room_name);
+                            println!("- {:}", room_name.green());
                         }
                     }
                     _ => {}
@@ -91,7 +122,7 @@ fn main() {
             tx.clone()
         );
     } else {
-        println!("Couldn't connect to server...");
+        println!("{}", "::Couldn't connect to server...".green());
     }
 
     // IO loop
@@ -100,24 +131,21 @@ fn main() {
         stdin().read_line(&mut buffer).unwrap();
         let re = Regex::new(r"/(.*) (.*)").unwrap();
 
-        if (buffer.len() > 0) {
-            if(buffer.starts_with(r"/")) {
+        if buffer.len() > 0 {
+            if buffer.starts_with(r"/") {
                 if let Some(capture) = re.captures(&buffer) {
-                    println!("{:?}",capture);
                     match &capture[1] {
-                        "join" => println!("{:?}", "valid"),
+                        "join" => tx.send(RequestJoinRoom(capture[2].to_string())).unwrap(),
+                        "create" => tx.send(RequestCreateRoom(capture[2].to_string())).unwrap(),
                         "list" => tx.send(RequestRoomList(true)).unwrap(),
-                        _ => println!("{:?}", "Invalid command")
+                        _ => println!("{:}", "::Invalid command".green())
                     }
                 } else {
-                    println!("{:?}", "Not captured");
+                    println!("{:}", "Not captured");
                 }
             } else {
-                tx.send(TypedNewMessage(buffer.to_owned())).unwrap();
+                tx.send(RequestTypedNewMessage(buffer.to_owned())).unwrap();
             }
         }
     }
 }
-
-
-

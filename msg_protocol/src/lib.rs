@@ -9,6 +9,12 @@ pub struct NewClientResponse {
     pub response: bool
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MsgResponse {
+    pub client_name: String,
+    pub msg: String
+}
+
 /**
  * Messages sent between the client and the server
  */
@@ -23,8 +29,14 @@ pub enum MsgProtocol {
 
     LeaveCurrentRoom(bool),
 
-    TypedNewMessage(String),
-    ToClientMsgFromRoom(String)
+    RequestCreateRoom(String),
+    ResponseCreateRoom(bool),
+
+    RequestJoinRoom(String),
+    ResponseJoinRoom(bool),
+
+    RequestTypedNewMessage(String),
+    ResponseTypedMessage(MsgResponse)
 }
 
 impl MsgProtocol {
@@ -36,5 +48,3 @@ impl MsgProtocol {
         serde_json::to_string(msg).unwrap() + "\n"
     }
 }
-
-

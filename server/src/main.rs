@@ -4,7 +4,6 @@ extern crate pretty_env_logger;
 extern crate serde_json;
 extern crate msg_protocol;
 extern crate threadpool;
-use msg_protocol::MsgProtocol;
 
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -14,7 +13,6 @@ use con_reader::ConReader;
 
 mod manager;
 use manager::ManagerMsg;
-use manager::manager_msg;
 
 use std::net::TcpListener;
 use std::sync::mpsc::channel;
@@ -33,7 +31,9 @@ fn main() {
                 info!("New Client {:?}", stream);
                 ConReader::spawn(stream, manager_send.clone());
             },
-            Err(e) => { /* connection failed */ }
+            Err(e) => {
+                println!("{:?}", e);
+            }
         }
     }
 }
