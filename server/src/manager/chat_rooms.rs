@@ -98,11 +98,5 @@ impl ChatRooms {
             .filter(|name| name != client_name)
             .collect()
     }
-
-    // pub fn debug_room_participants(&self) -> () {
-    //     for room in self.rooms.values() {
-    //         println!("{:?}", room);
-    //     }
-    // }
 }
 
