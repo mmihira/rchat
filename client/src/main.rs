@@ -55,7 +55,6 @@ fn main() {
         .arg(Arg::with_name("host")
             .short("h")
             .help("Server address")
-            .required(true)
             .takes_value(true))
         .arg(Arg::with_name("name")
             .short("n")
@@ -216,6 +215,7 @@ fn main() {
 
     let mut app_ui = app_ui::AppUi::new();
     let mut terminal = init().expect("Failed initialization");
+    terminal.hide_cursor();
     terminal.clear().unwrap();
 
     'ui_loop: loop {
@@ -274,7 +274,7 @@ fn draw_ui(mut terminal: &mut tui::Terminal<RawBackend>, app_ui: &app_ui::AppUi)
             Paragraph::default()
                 .style(Style::default().fg(Color::Yellow))
                 .block(Block::default().borders(Borders::ALL).title("Input"))
-                .text(&app_ui.get_messages_for_display())
+                .text(&app_ui.get_messages_for_display((chunks[0].height - 2) as usize))
                 .render(t, &chunks[0]);
 
             Block::default()

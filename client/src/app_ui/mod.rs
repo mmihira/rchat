@@ -24,8 +24,9 @@ impl AppUi {
         }
     }
 
-    pub fn get_messages_for_display(&self) -> String {
-        self.messages.join("\n")
+    pub fn get_messages_for_display(&self, height: usize) -> String {
+        let start = if height > self.messages.len() { 0 } else { self.messages.len() - height };
+        self.messages[start..self.messages.len()].join("\n")
     }
 
     pub fn backspace(&mut self) {
