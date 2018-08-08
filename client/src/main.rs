@@ -1,14 +1,20 @@
-extern crate colored;
 extern crate names;
 extern crate msg_protocol;
 extern crate regex;
 extern crate serde_json;
 extern crate tui;
 extern crate termion;
+extern crate clap;
 
 mod read_worker;
 mod app_ui;
 use app_ui::AppMsg;
+
+use std::net::TcpStream;
+use std::io;
+use std::io::Write;
+use std::{thread};
+use std::sync::mpsc::channel;
 
 use tui::Terminal;
 use tui::backend::RawBackend;
@@ -19,7 +25,6 @@ use tui::style::{Color, Style};
 use termion::event;
 use termion::input::TermRead;
 
-use colored::*;
 use regex::Regex;
 use names::{Generator, Name};
 
@@ -37,13 +42,7 @@ use msg_protocol::MsgProtocol::{
     ResponseRoomList
 };
 
-use std::net::TcpStream;
-use std::io;
-use std::io::Write;
-use std::io::stdin;
-
-use std::{thread};
-use std::sync::mpsc::channel;
+use clap::{Arg, App};
 
 fn init() -> Result<Terminal<RawBackend>, io::Error> {
     let backend = RawBackend::new()?;
@@ -51,17 +50,32 @@ fn init() -> Result<Terminal<RawBackend>, io::Error> {
 }
 
 fn main() {
+    let console_args = App::new("My Super Program")
+        .about("Chat client")
+        .arg(Arg::with_name("host")
+            .short("h")
+            .help("Server address")
+            .required(true)
+            .takes_value(true))
+        .arg(Arg::with_name("name")
+            .short("n")
+            .help("User name")
+            .takes_value(true))
+      .get_matches();
+
+    let server_host = console_args.value_of("host").unwrap_or("127.0.0.1:30000");
+    let mut generator = Generator::with_naming(Name::Plain);
+    let tmp_name = generator.next().unwrap();
+    let name = console_args.value_of("name").unwrap_or(&tmp_name);
+    let name_copy = name.to_string();
+
     let (msg_protocol_tx, msg_protocol_rx) = channel();
     let (app_msg_tx, app_msg_rx) = channel();
     let app_msg_tx_writer = app_msg_tx.clone();
 
-    let mut generator = Generator::with_naming(Name::Plain);
-    let name = generator.next().unwrap();
-    let name_copy = name.to_string();
-
     // Connect to server
-    if let Ok(stream) = TcpStream::connect("127.0.0.1:30000") {
-        app_msg_tx.send(AppMsg::Info("::Connected to the server!".to_string()));
+    if let Ok(stream) = TcpStream::connect(server_host) {
+        app_msg_tx.send(AppMsg::Info("::Connected to the server!".to_string())).unwrap();
         let app_msg_tx_wp = app_msg_tx.clone();
 
         let mut write_stream_clone = stream.try_clone().unwrap();
@@ -78,13 +92,13 @@ fn main() {
             let server_acceptance: MsgProtocol = msg_protocol_rx.recv().unwrap();
 
             if let NewClientResponse(_) = server_acceptance {
-                app_msg_tx_wp.send(AppMsg::Info("::Server allowed access!".to_string()));
-                app_msg_tx_wp.send(AppMsg::Info("::Chat commands availbale: ".to_string()));
-                app_msg_tx_wp.send(AppMsg::Info(" /create <room_name> : Create a new room".to_string()));
-                app_msg_tx_wp.send(AppMsg::Info(" /join <room_name>   : Join a new room".to_string()));
-                app_msg_tx_wp.send(AppMsg::Info(" /list rooms         : list all rooms".to_string()));
+                app_msg_tx_wp.send(AppMsg::Info("::Server allowed access!".to_string())).unwrap();
+                app_msg_tx_wp.send(AppMsg::Info("::Chat commands availbale: ".to_string())).unwrap();
+                app_msg_tx_wp.send(AppMsg::Info(" /create <room_name> : Create a new room".to_string())).unwrap();
+                app_msg_tx_wp.send(AppMsg::Info(" /join <room_name>   : Join a new room".to_string())).unwrap();
+                app_msg_tx_wp.send(AppMsg::Info(" /list rooms         : list all rooms".to_string())).unwrap();
             } else {
-                app_msg_tx_writer.send(AppMsg::Error("::Server denied access!".to_string()));
+                app_msg_tx_writer.send(AppMsg::Error("::Server denied access!".to_string())).unwrap();
                 return 0;
             }
 
@@ -97,7 +111,7 @@ fn main() {
                         ).unwrap();
                     },
                     ResponseTypedMessage(msg) => {
-                        app_msg_tx_wp.send(AppMsg::ChatMsg(msg));
+                        app_msg_tx_wp.send(AppMsg::ChatMsg(msg)).unwrap();
                     },
                     RequestRoomList(_) => {
                         let _res = write_stream_clone.write(
@@ -116,24 +130,24 @@ fn main() {
                     }
                     ResponseCreateRoom(result) => {
                         if result {
-                            app_msg_tx_wp.send(AppMsg::Info("::Created room".to_string()));
+                            app_msg_tx_wp.send(AppMsg::Info("::Created room".to_string())).unwrap();
                         } else {
-                            app_msg_tx_wp.send(AppMsg::Info("::Room allready exists".to_string()));
+                            app_msg_tx_wp.send(AppMsg::Info("::Room allready exists".to_string())).unwrap();
                         }
                     },
                     ResponseJoinRoom(result) => {
                         if result {
-                            app_msg_tx_wp.send(AppMsg::Info("::Joined room".to_string()));
+                            app_msg_tx_wp.send(AppMsg::Info("::Joined room".to_string())).unwrap();
                         } else {
-                            app_msg_tx_wp.send(AppMsg::Info("::Could not join room".to_string()));
+                            app_msg_tx_wp.send(AppMsg::Info("::Could not join room".to_string())).unwrap();
                         }
                     },
                     ResponseRoomList(ref list) => {
-                        app_msg_tx_wp.send(AppMsg::Info("::Rooms available are".to_string()));
+                        app_msg_tx_wp.send(AppMsg::Info("::Rooms available are".to_string())).unwrap();
                         for room_name in list.iter() {
                             app_msg_tx_wp.send(AppMsg::Info(
                                 format!("- {:}", room_name).to_string()
-                            ));
+                            )).unwrap();
                         }
                     }
                     _ => {}
@@ -147,7 +161,9 @@ fn main() {
             msg_protocol_tx.clone()
         );
     } else {
-        app_msg_tx.send(AppMsg::Info("::Coudn't connect to the server!".to_string()));
+        app_msg_tx.send(AppMsg::Info("::Coudn't connect to the server!".to_string())).unwrap();
+        println!("{}", "Coudn't connect to the server");
+        return;
     }
 
     let _io_thread = thread::spawn(move|| {
@@ -178,7 +194,7 @@ fn main() {
                             msg_protocol_tx.send(RequestTypedNewMessage(current_line_buffer.to_owned())).unwrap();
                         }
 
-                        app_msg_tx_send.send(AppMsg::NewLine);
+                        app_msg_tx_send.send(AppMsg::NewLine).unwrap();
                         current_line_buffer.clear();
                     },
                     event::Key::Backspace => {
@@ -191,7 +207,7 @@ fn main() {
                     event::Key::Char(some_char) => {
                         current_line_buffer.push(some_char);
                         app_msg_tx_send.send(AppMsg::Char(some_char.to_string())).unwrap();
-                    }
+                    },
                     _ => ()
                 }
             }
@@ -227,13 +243,12 @@ fn main() {
                 let drained: String = app_ui.input.drain(..).collect();
                 app_ui.messages.push(format!("{{fg=white {}: {}}}", name, drained));
             },
-            AppMsg::Error(err) => {
+            AppMsg::Error(_) => {
                 let copy: String = app_ui.input.drain(..).collect();
                 app_ui.messages.push(
                     format!("{{fg=red ::Invalid command {} }}", copy)
                     );
-            },
-            _ => ()
+            }
         }
 
         draw_ui(&mut terminal, &app_ui);
@@ -262,17 +277,10 @@ fn draw_ui(mut terminal: &mut tui::Terminal<RawBackend>, app_ui: &app_ui::AppUi)
                 .text(&app_ui.get_messages_for_display())
                 .render(t, &chunks[0]);
 
-            let k = Block::default()
-                .borders(Borders::ALL)
-                .render(t, &chunks[0]);
-
             Block::default()
                 .borders(Borders::ALL)
                 .render(t, &chunks[1]);
         });
 
-    terminal.draw();
+    terminal.draw().unwrap();
 }
-
-
-
