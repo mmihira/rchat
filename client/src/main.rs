@@ -168,7 +168,7 @@ fn main() {
     let mut app_ui = app_ui::AppUi::new();
     let mut terminal = init().expect("Failed initialization");
 
-    terminal.hide_cursor();
+    terminal.hide_cursor().unwrap();
     terminal.clear().unwrap();
     let term_size = terminal.size().unwrap();
 
