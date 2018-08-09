@@ -165,6 +165,13 @@ fn main() {
         return;
     }
 
+    let mut app_ui = app_ui::AppUi::new();
+    let mut terminal = init().expect("Failed initialization");
+
+    terminal.hide_cursor();
+    terminal.clear().unwrap();
+    let term_size = terminal.size().unwrap();
+
     let _io_thread = thread::spawn(move|| {
         // IO loop
         let app_msg_tx_send = app_msg_tx.clone();
@@ -204,8 +211,10 @@ fn main() {
                         }
                     },
                     event::Key::Char(some_char) => {
-                        current_line_buffer.push(some_char);
-                        app_msg_tx_send.send(AppMsg::Char(some_char.to_string())).unwrap();
+                        if (term_size.width as usize) - current_line_buffer.len() > 5 {
+                            current_line_buffer.push(some_char);
+                            app_msg_tx_send.send(AppMsg::Char(some_char.to_string())).unwrap();
+                        }
                     },
                     _ => ()
                 }
@@ -213,19 +222,10 @@ fn main() {
         }
     });
 
-    let mut app_ui = app_ui::AppUi::new();
-    let mut terminal = init().expect("Failed initialization");
-    terminal.hide_cursor();
-    terminal.clear().unwrap();
 
     'ui_loop: loop {
         let app_msg = app_msg_rx.recv().unwrap();
 
-        // YOU NEED TO HANDLE
-        // The case where the input length is currently equal to len of the screen size -4
-        // You'll have to wrap the lines or something ....
-        // Could move this logic into the UiApp
-        // Also need to catch window resize eventually ....
         match app_msg {
             AppMsg::Char(some_char) => {
                 app_ui.input.push_str(&some_char);
@@ -237,11 +237,25 @@ fn main() {
                 app_ui.messages.push(format!("{{fg=magenta {} }}", info));
             },
             AppMsg::ChatMsg(msg_protocol::MsgResponse{client_name, msg}) => {
-                app_ui.messages.push(format!("{{fg=green {}: {}}}", client_name, msg));
+                let mut long_msg = format!("{{fg=green {}: {}}}", client_name, msg);
+                if  (long_msg.len() as u16) > terminal.size().unwrap().width - 5 {
+                    let split = long_msg.split_off((terminal.size().unwrap().width - 5) as usize);
+                    app_ui.messages.push(long_msg);
+                    app_ui.messages.push(split);
+                } else {
+                    app_ui.messages.push(long_msg);
+                }
             },
             AppMsg::NewLine => {
                 let drained: String = app_ui.input.drain(..).collect();
-                app_ui.messages.push(format!("{{fg=white {}: {}}}", name, drained));
+                let mut msg = format!("{{fg=white {}: {}}}", name, drained);
+                if  (msg.len() as u16) > terminal.size().unwrap().width - 5 {
+                    let split = msg.split_off((terminal.size().unwrap().width - 5) as usize);
+                    app_ui.messages.push(msg);
+                    app_ui.messages.push(split);
+                } else {
+                    app_ui.messages.push(msg);
+                }
             },
             AppMsg::Error(_) => {
                 let copy: String = app_ui.input.drain(..).collect();
