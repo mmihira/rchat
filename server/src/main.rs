@@ -1,4 +1,5 @@
 extern crate pretty_env_logger;
+extern crate clap;
 #[macro_use] extern crate log;
 
 extern crate serde_json;
@@ -17,14 +18,27 @@ use manager::ManagerMsg;
 use std::net::TcpListener;
 use std::sync::mpsc::channel;
 
+use clap::{Arg, App};
+
 fn main() {
     pretty_env_logger::init();
+
+    let console_args = App::new("Chat server")
+        .about("Chat server")
+        .arg(Arg::with_name("host")
+            .short("h")
+            .help("Server address")
+            .takes_value(true))
+        .get_matches();
+
+    let server_host = console_args.value_of("host").unwrap_or("127.0.0.1:30000");
+
     let (manager_send, manager_receive): (Sender<ManagerMsg>, Receiver<ManagerMsg>) = channel();
     let _manager_handle = manager::Manager::spawn(manager_receive);
 
     info!("Server starting");
 
-    let listener = TcpListener::bind("127.0.0.1:30000").unwrap();
+    let listener = TcpListener::bind(server_host).unwrap();
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {

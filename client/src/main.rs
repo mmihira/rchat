@@ -50,7 +50,7 @@ fn init() -> Result<Terminal<RawBackend>, io::Error> {
 }
 
 fn main() {
-    let console_args = App::new("My Super Program")
+    let console_args = App::new("Chat client")
         .about("Chat client")
         .arg(Arg::with_name("host")
             .short("h")
@@ -60,7 +60,7 @@ fn main() {
             .short("n")
             .help("User name")
             .takes_value(true))
-      .get_matches();
+        .get_matches();
 
     let server_host = console_args.value_of("host").unwrap_or("127.0.0.1:30000");
     let mut generator = Generator::with_naming(Name::Plain);
@@ -169,6 +169,7 @@ fn main() {
     let mut terminal = init().expect("Failed initialization");
 
     terminal.hide_cursor().unwrap();
+
     terminal.clear().unwrap();
     let term_size = terminal.size().unwrap();
 
@@ -281,13 +282,13 @@ fn draw_ui(mut terminal: &mut tui::Terminal<RawBackend>, app_ui: &app_ui::AppUi)
 
             Paragraph::default()
                 .style(Style::default().fg(Color::Yellow))
-                .block(Block::default().borders(Borders::ALL).title("Input"))
+                .block(Block::default().borders(Borders::ALL).title("Chat Log"))
                 .text(&input_text)
                 .render(t, &chunks[1]);
 
             Paragraph::default()
                 .style(Style::default().fg(Color::Yellow))
-                .block(Block::default().borders(Borders::ALL).title("Input"))
+                .block(Block::default().borders(Borders::ALL).title("Chat Log"))
                 .text(&app_ui.get_messages_for_display((chunks[0].height - 2) as usize))
                 .render(t, &chunks[0]);
 
