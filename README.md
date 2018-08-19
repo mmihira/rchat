@@ -34,6 +34,6 @@ cargo build --release
 ./target/release/rchat-client -h localhost:20000 -n Bob
 ```
 
-#### Preview
+### Preview
 
 ![sdfsfd](https://thumbs.gfycat.com/TerribleLameAndeancat-size_restricted.gif)
